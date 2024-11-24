@@ -65,10 +65,9 @@ const removeNote = (noteName) => {
   }
 };
 
-// Initialize multer
+// Створення інстанса multer без параметрів для обробки form-даних без файлів
 const upload = multer();
 
-// GET all notes
 app.get("/notes", (req, res) => {
   const notesList = fs
     .readdirSync(cache)
@@ -81,14 +80,13 @@ app.get("/notes", (req, res) => {
   res.status(200).json(notesList);
 });
 
-// GET specific note
 app.get("/notes/:noteName", (req, res) => {
   const content = fetchNote(req.params.noteName);
   if (!content) return res.status(404).send("Note not found");
   res.status(200).send(content);
 });
 
-// POST new note
+// Використовуємо multer без параметрів для обробки даних
 app.post("/write", upload.none(), (req, res) => {
   const { note_name, note } = req.body;
   if (fetchNote(note_name)) return res.status(400).send("Note already exists");
@@ -96,7 +94,6 @@ app.post("/write", upload.none(), (req, res) => {
   res.status(201).send("Note successfully created");
 });
 
-// DELETE a note
 app.delete("/notes/:noteName", (req, res) => {
   const noteName = req.params.noteName;
   if (!fetchNote(noteName)) return res.status(404).send("Note not found");
@@ -104,7 +101,16 @@ app.delete("/notes/:noteName", (req, res) => {
   res.sendStatus(200);
 });
 
-// Start the server
+app.put("/notes/:noteName", upload.none(), (req, res) => {
+  const noteName = req.params.noteName;
+  const { noteContent } = req.body;
+  if (!fetchNote(noteName)) {
+    return res.status(404).send("Note does not exist");
+  }
+  saveNote(noteName, noteContent);
+  res.status(200).send("Note successfully updated");
+});
+
 app.listen(port, host, () => {
   console.log(`Server is running on http://${host}:${port}`);
 });
