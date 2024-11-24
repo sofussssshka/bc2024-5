@@ -1,13 +1,18 @@
-const { Command } = require("commander");
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const bodyParser = require("body-parser");
 const multer = require("multer");
+const { Command } = require("commander");
 
 const app = express();
+
+// Встановлюємо статичну папку для доступу до HTML файлів
+app.use(express.static(path.join(__dirname))); // Це дозволяє доступ до файлів в поточній директорії
+
 app.use(bodyParser.json());
 
+// Налаштування команд для запуску серверу через CLI
 const program = new Command();
 
 program
@@ -109,6 +114,11 @@ app.put("/notes/:noteName", upload.none(), (req, res) => {
   }
   saveNote(noteName, noteContent);
   res.status(200).send("Note successfully updated");
+});
+
+// Додано: маршрут для видачі HTML форми
+app.get("/UploadForm.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "UploadForm (3).html")); // Повертатиме форму
 });
 
 app.listen(port, host, () => {
