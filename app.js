@@ -1,40 +1,81 @@
-const express = require("express"); // Підключення Express
 const { Command } = require("commander");
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const bodyParser = require("body-parser");
+const multer = require("multer"); // Ensure multer is correctly imported
+
+const app = express();
+app.use(bodyParser.json());
 
 const program = new Command();
-program
-  .requiredOption("-h, --host <host>", "server host") // Обов'язковий параметр хоста
-  .requiredOption("-p, --port <port>", "server port") // Обов'язковий параметр порту
-  .requiredOption("-c, --cache <cache>", "cache directory") // Обов'язковий параметр кешу
-  .parse(process.argv);
 
-// Отримання параметрів з командного рядка
-const { host, port, cache } = program.opts();
+// Set host and port values
+const host = "127.0.0.1";
+const port = 3000;
 
-// Перевірка параметрів (можна видалити, оскільки вони вже є обов'язковими через `requiredOption`)
-if (!host) {
-  console.error("Error: input host");
-  return;
-}
-if (!port) {
-  console.error("Error: input port");
-  return;
-}
-if (!cache) {
-  console.error("Error: input cache");
-  return;
+// Specify the cache directory
+const cache = path.join(__dirname, "cache");
+
+if (!fs.existsSync(cache)) {
+  fs.mkdirSync(cache, { recursive: true });
 }
 
-// Ініціалізація додатку Express
-const app = express();
+const getNotePath = (noteName) => {
+  return path.join(cache, `${noteName}.txt`);
+};
 
-// Простий обробник для перевірки роботи сервера
-app.get("/", (req, res) => {
-  res.send(`Сервер працює на http://${host}:${port}. Кеш директорія: ${cache}`);
+const fetchNote = (noteName) => {
+  try {
+    const notePath = getNotePath(noteName);
+    return fs.existsSync(notePath) ? fs.readFileSync(notePath, "utf8") : null;
+  } catch (error) {
+    console.error("Error reading note:", error);
+    return null;
+  }
+};
+
+const saveNote = (noteName, content) => {
+  try {
+    const notePath = getNotePath(noteName);
+    fs.writeFileSync(notePath, content, "utf8");
+  } catch (error) {
+    console.error("Error writing note:", error);
+  }
+};
+
+// Initialize multer
+const upload = multer();
+
+// GET all notes
+app.get("/notes", (req, res) => {
+  const notesList = fs
+    .readdirSync(cache)
+    .filter((filename) => filename.endsWith(".txt"))
+    .map((filename) => {
+      const name = filename.replace(/\.txt$/, "");
+      const text = fetchNote(name);
+      return { name, text };
+    });
+  res.status(200).json(notesList);
 });
 
-// Запуск сервера
+// GET specific note
+app.get("/notes/:noteName", (req, res) => {
+  const content = fetchNote(req.params.noteName);
+  if (!content) return res.status(404).send("Note not found");
+  res.status(200).send(content);
+});
+
+// POST new note
+app.post("/write", upload.none(), (req, res) => {
+  const { note_name, note } = req.body;
+  if (fetchNote(note_name)) return res.status(400).send("Note already exists");
+  saveNote(note_name, note);
+  res.status(201).send("Note successfully created");
+});
+
+// Start the server
 app.listen(port, host, () => {
-  console.log(`Сервер запущено на http://${host}:${port}`);
-  console.log(`Кеш директорія: ${cache}`);
+  console.log(`Server is running on http://${host}:${port}`);
 });
