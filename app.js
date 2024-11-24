@@ -3,22 +3,34 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const bodyParser = require("body-parser");
-const multer = require("multer"); // Ensure multer is correctly imported
+const multer = require("multer");
 
 const app = express();
 app.use(bodyParser.json());
 
 const program = new Command();
 
-// Set host and port values
-const host = "127.0.0.1";
-const port = 3000;
+program
+  .requiredOption("-h, --host <host>", "server host")
+  .requiredOption("-p, --port <port>", "server port")
+  .requiredOption("-c, --cache <cache>", "cache directory")
+  .parse(process.argv);
 
-// Specify the cache directory
-const cache = path.join(__dirname, "cache");
+const { host, port, cache } = program.opts();
 
-if (!fs.existsSync(cache)) {
-  fs.mkdirSync(cache, { recursive: true });
+if (!host) {
+  console.error("Error: input host");
+  return;
+}
+
+if (!port) {
+  console.error("Error: input port");
+  return;
+}
+
+if (!cache) {
+  console.error("Error: input cache");
+  return;
 }
 
 const getNotePath = (noteName) => {
@@ -41,6 +53,15 @@ const saveNote = (noteName, content) => {
     fs.writeFileSync(notePath, content, "utf8");
   } catch (error) {
     console.error("Error writing note:", error);
+  }
+};
+
+const removeNote = (noteName) => {
+  try {
+    const notePath = getNotePath(noteName);
+    if (fs.existsSync(notePath)) fs.unlinkSync(notePath);
+  } catch (error) {
+    console.error("Error deleting note:", error);
   }
 };
 
@@ -73,6 +94,14 @@ app.post("/write", upload.none(), (req, res) => {
   if (fetchNote(note_name)) return res.status(400).send("Note already exists");
   saveNote(note_name, note);
   res.status(201).send("Note successfully created");
+});
+
+// DELETE a note
+app.delete("/notes/:noteName", (req, res) => {
+  const noteName = req.params.noteName;
+  if (!fetchNote(noteName)) return res.status(404).send("Note not found");
+  removeNote(noteName);
+  res.sendStatus(200);
 });
 
 // Start the server
